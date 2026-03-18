@@ -1,5 +1,5 @@
 import datetime
-
+import hashlib
 from django.db import models
 from django.utils import timezone
 
@@ -22,3 +22,5 @@ class Choice(models.Model):
     
     def __str__(self):
         return self.choice_text
+
+
