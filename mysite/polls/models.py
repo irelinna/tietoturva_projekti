@@ -29,6 +29,7 @@ class SimpleUser(models.Model):
     password = models.CharField(max_length=256)
 
     def set_password(self, raw_password):
+        # OWASP 2021 2: Cryptographic failures
         # FLAW: unsalted SHA1 hashing
         # SHA1 is considered broken and unsuitable for password storage
         self.password = hashlib.sha1(raw_password.encode()).hexdigest()
@@ -38,6 +39,7 @@ class SimpleUser(models.Model):
         # self.password = make_password(raw_password)
 
     def check_password(self, raw_password):
+        # OWASP 2021 2: Cryptographic failures
         # FLAW: compare using weak hash
         return self.password == hashlib.sha1(raw_password.encode()).hexdigest()
 

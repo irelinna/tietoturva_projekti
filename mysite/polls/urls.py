@@ -8,5 +8,6 @@ urlpatterns = [
     path('login/', views.login_view),
     path('get_app_info/', views.get_app_info),
     path('admin_get_app_info/', views.admin_get_app_info),
-    path("download_users/", views.download_users, name="download_users")
+    path("download_users/", views.download_users, name="download_users"),
+    path('get_user/', views.get_user)
 ]
