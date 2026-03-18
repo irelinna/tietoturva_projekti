@@ -2,7 +2,10 @@ from django.shortcuts import render
 from django.db import connection
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import authenticate, login
-from .models import SimpleUser
+from .models import User
+import hashlib
+from django.core.exceptions import ValidationError
+from django.contrib.auth.password_validation import validate_password
 
 # Create your views here.
 from django.http import HttpResponse
@@ -32,19 +35,20 @@ def admin_get_app_info(request):
 
 def login_view(request):
     # OWASP 2021 2: Cryptographic failures
+    # OWASP 2021 7: Identification and authentication failures
     if request.method == "POST":
         username = request.POST.get('username')
         password = request.POST.get('password')
 
         try:
-            user = SimpleUser.objects.get(username=username)
+            user = User.objects.get(username=username)
 
-            # FLAW: weak password verification
+            # FLAW: weak password verification, no account lockout, no logging
             if user.check_password(password):
                 request.session['user'] = user.username
                 return HttpResponse("Logged in!")
 
-        except SimpleUser.DoesNotExist:
+        except User.DoesNotExist:
             pass
 
         return HttpResponse("Login failed")
@@ -55,6 +59,7 @@ def login_view(request):
 # FIX: use Django authentication
 # def login_view(request):
 #     # OWASP 2021 2: Cryptographic failures 
+#     # OWASP 2021 7: Identification and authentication failures
 #     if request.method == "POST":
 #         username = request.POST.get('username')
 #         password = request.POST.get('password')
@@ -62,9 +67,9 @@ def login_view(request):
 #         # FIX: Use Django's secure authentication
 #         user = authenticate(request, username=username, password=password)
 #         if user:
-#             login(request, user)
+#             login(request, user)  # Django manages session securely
 #             return HttpResponse("Logged in!")
-
+#         # Optionally log failed attempts and enforce lockout
 #         return HttpResponse("Login failed")
 
 #     return render(request, "login.html")
@@ -73,11 +78,12 @@ def login_view(request):
 
 def register(request):
     # OWASP 2021 2: Cryptographic failures
+    # OWASP 2021 7: Identification and authentication failures
     if request.method == "POST":
         username = request.POST.get("username")
         password = request.POST.get("password")
 
-        user = SimpleUser(username=username)
+        user = User(username=username)
 
         # FLAW: weak hashing
         user.set_password(password)
@@ -92,15 +98,19 @@ def register(request):
 # FIX:
 # def register(request):
 #    # OWASP 2021 2: Cryptographic failures
+#    # OWASP 2021 7: Identification and authentication failures
 #    if request.method == "POST":
 #         username = request.POST.get("username")
 #         password = request.POST.get("password")
 
-#         # FIX: Use Django's built-in secure user creation
-#         user = SimpleUser.objects.create_user(username=username, password=password)
-#         user.save()
-
-#         return HttpResponse("User created")
+#         # FIX: Use Django's built-in secure user creation + password validation
+#         try:
+#             validate_password(password)  # enforce complexity
+#             user = User.objects.create_user(username=username, password=password)
+#             user.save()
+#             return HttpResponse("User created")
+#         except ValidationError as e:
+#             return HttpResponse(f"Password not strong enough: {e}")
 
 #     return render(request, "register.html")
 
@@ -108,7 +118,7 @@ def register(request):
 def download_users(request):
     # OWASP 2021 2: Cryptographic failures
     # FLAW: exposes password hashes without authentication
-    users = SimpleUser.objects.all()
+    users = User.objects.all()
 
     data = ""
     for user in users:
@@ -124,7 +134,7 @@ def download_users(request):
 #     if not request.user.is_authenticated or not request.user.is_staff:
 #         return HttpResponse("Unauthorized", status=403)
 
-#     users = SimpleUser.objects.all()
+#     users = User.objects.all()
 #     data = ""
 #     for user in users:
 #         # Passwords are stored securely, cannot retrieve raw hashes
@@ -140,24 +150,24 @@ def get_user(request):
     user_id = request.GET.get('id')
 
     # # FLAW: user input inserted directly into query
-    # query = f"SELECT * FROM polls_simpleuser WHERE id = '{user_id}'"
+    query = f"SELECT * FROM polls_user WHERE id = '{user_id}'"
 
-    # with connection.cursor() as cursor:
-    #     cursor.execute(query)
-    #     result = cursor.fetchall()
-    #     if not result:
-    #        return HttpResponse("No results found")
-
-    # data = "<br>".join([str(row) for row in result])
-    # return HttpResponse(data)
-
-    # FIX: parameterized query prevents SQL injection
-    query = "SELECT * FROM polls_simpleuser WHERE id = %s"
     with connection.cursor() as cursor:
-        cursor.execute(query, [user_id])
+        cursor.execute(query)
         result = cursor.fetchall()
         if not result:
-            return HttpResponse("No results found")
-    
+           return HttpResponse("No results found")
+
     data = "<br>".join([str(row) for row in result])
     return HttpResponse(data)
+
+    # FIX: parameterized query prevents SQL injection
+    # query = "SELECT * FROM polls_user WHERE id = %s"
+    # with connection.cursor() as cursor:
+    #     cursor.execute(query, [user_id])
+    #     result = cursor.fetchall()
+    #     if not result:
+    #         return HttpResponse("No results found")
+    
+    # data = "<br>".join([str(row) for row in result])
+    # return HttpResponse(data)
