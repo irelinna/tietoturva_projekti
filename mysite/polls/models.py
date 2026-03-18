@@ -24,3 +24,23 @@ class Choice(models.Model):
         return self.choice_text
 
 
+class SimpleUser(models.Model):
+    username = models.CharField(max_length=100, unique = True)
+    password = models.CharField(max_length=256)
+
+    def set_password(self, raw_password):
+        # FLAW: unsalted SHA1 hashing
+        # SHA1 is considered broken and unsuitable for password storage
+        self.password = hashlib.sha1(raw_password.encode()).hexdigest()
+
+        # FIX: use Django’s secure password hashing
+        # from django.contrib.auth.hashers import make_password
+        # self.password = make_password(raw_password)
+
+    def check_password(self, raw_password):
+        # FLAW: compare using weak hash
+        return self.password == hashlib.sha1(raw_password.encode()).hexdigest()
+
+        # FIX:
+        # from django.contrib.auth.hashers import check_password
+        # return check_password(raw_password, self.password)

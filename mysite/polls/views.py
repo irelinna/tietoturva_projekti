@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.db import connection
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import authenticate, login
+from .models import SimpleUser
 
 # Create your views here.
 from django.http import HttpResponse
@@ -12,12 +13,36 @@ def index(request):
 
 
 def login_view(request):
+    # OWASP 2021 2: Cryptographic failures
     if request.method == "POST":
         username = request.POST.get('username')
         password = request.POST.get('password')
 
-        user = authenticate(request, username=username, password=password)
+        try:
+            user = SimpleUser.objects.get(username=username)
 
+            # FLAW: weak password verification
+            if user.check_password(password):
+                request.session['user'] = user.username
+                return HttpResponse("Logged in!")
+
+        except SimpleUser.DoesNotExist:
+            pass
+
+        return HttpResponse("Login failed")
+
+    return render(request, "login.html")
+
+
+""" FIX: use Django authentication
+    def login_view(request):
+    # OWASP 2021 2: Cryptographic failures 
+    if request.method == "POST":
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        # FIX: Use Django's secure authentication
+        user = authenticate(request, username=username, password=password)
         if user:
             login(request, user)
             return HttpResponse("Logged in!")
@@ -25,6 +50,70 @@ def login_view(request):
         return HttpResponse("Login failed")
 
     return render(request, "login.html")
+"""
+
+
+def register(request):
+    # OWASP 2021 2: Cryptographic failures
+    if request.method == "POST":
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+
+        user = SimpleUser(username=username)
+
+        # FLAW: weak hashing
+        user.set_password(password)
+
+        user.save()
+
+        return HttpResponse("User created")
+
+    return render(request, "register.html")
+
+
+""" FIX:
+    def register(request):
+    # OWASP 2021 2: Cryptographic failures
+    if request.method == "POST":
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+
+        # FIX: Use Django's built-in secure user creation
+        user = SimpleUser.objects.create_user(username=username, password=password)
+        user.save()
+
+        return HttpResponse("User created")
+
+    return render(request, "register.html")
+"""
+
+def download_users(request):
+    # OWASP 2021 2: Cryptographic failures
+    # FLAW: exposes password hashes without authentication
+    users = SimpleUser.objects.all()
+
+    data = ""
+    for user in users:
+        data += f"{user.username}:{user.password}\n"
+
+    return HttpResponse(data, content_type="text/plain")
+
+
+""" FIX:
+def download_users(request):
+    # OWASP 2021 2: Cryptographic failures
+    # FIX: restrict access to admins only
+    if not request.user.is_authenticated or not request.user.is_staff:
+        return HttpResponse("Unauthorized", status=403)
+
+    users = SimpleUser.objects.all()
+    data = ""
+    for user in users:
+        # Passwords are stored securely, cannot retrieve raw hashes
+        data += f"{user.username}: (protected)\n"
+
+    return HttpResponse(data, content_type="text/plain")
+"""
 
 
 def get_app_info(request):
