@@ -3,9 +3,10 @@ from django.db import connection
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import authenticate, login
 from .models import User
-import hashlib
+from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
+import hashlib
 
 # Create your views here.
 from django.http import HttpResponse
@@ -56,7 +57,7 @@ def login_view(request):
     return render(request, "login.html")
 
 
-# FIX: use Django authentication
+# FIX: 
 # def login_view(request):
 #     # OWASP 2021 2: Cryptographic failures 
 #     # OWASP 2021 7: Identification and authentication failures
@@ -69,7 +70,7 @@ def login_view(request):
 #         if user:
 #             login(request, user)  # Django manages session securely
 #             return HttpResponse("Logged in!")
-#         # Optionally log failed attempts and enforce lockout
+#         # Log failed attempts and enforce lockout
 #         return HttpResponse("Login failed")
 
 #     return render(request, "login.html")
@@ -99,7 +100,7 @@ def register(request):
 # def register(request):
 #    # OWASP 2021 2: Cryptographic failures
 #    # OWASP 2021 7: Identification and authentication failures
-#    if request.method == "POST":
+#     if request.method == "POST":
 #         username = request.POST.get("username")
 #         password = request.POST.get("password")
 
@@ -111,7 +112,6 @@ def register(request):
 #             return HttpResponse("User created")
 #         except ValidationError as e:
 #             return HttpResponse(f"Password not strong enough: {e}")
-
 #     return render(request, "register.html")
 
 
