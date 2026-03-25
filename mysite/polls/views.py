@@ -105,7 +105,7 @@ def register(request):
     return render(request, "register.html")
 
 
-# FIX:
+# # FIX:
 # def register(request):
 #    # OWASP 2021 2: Cryptographic failures
 #    # OWASP 2021 7: Identification and authentication failures
@@ -141,6 +141,7 @@ def download_users(request):
 #     # OWASP 2 FIX: restrict access to admins only
 #     if not request.user.is_authenticated or not request.user.is_staff:
 #         return HttpResponse("Unauthorized", status=403)
+#         # OWASP 9 FIX: log unauthorized access attempts
 #         logger.warning(f"Unauthorized access attempt to admin page by IP: {request.META.get('REMOTE_ADDR')}")
 
 #     users = User.objects.all()
