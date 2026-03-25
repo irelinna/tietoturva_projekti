@@ -7,6 +7,8 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 import hashlib
+import logging
+logger = logging.getLogger('security')
 
 # Create your views here.
 from django.http import HttpResponse
@@ -21,12 +23,12 @@ def get_app_info(request):
 
 
 # OWASP 2021 1: Broken access control
-# There is no authentication check for sensitive admin info
+# OWASP 1 FLAW: There is no authentication check for sensitive admin info
 def admin_get_app_info(request):
     return HttpResponse("Sensitive admin data: only admins should see this")
 
 
-# FIX:
+# OWASP 1 FIX:
 # @login_required
 # @user_passes_test(lambda u: u.is_staff)
 # def admin_get_app_info(request):
@@ -37,14 +39,16 @@ def admin_get_app_info(request):
 def login_view(request):
     # OWASP 2021 2: Cryptographic failures
     # OWASP 2021 7: Identification and authentication failures
+    # OWASP 2021 9: Security logging and monitoring failures
     if request.method == "POST":
         username = request.POST.get('username')
         password = request.POST.get('password')
 
         try:
+            # OWASP 9 FLAW: no logging of login attempts
             user = User.objects.get(username=username)
 
-            # FLAW: weak password verification, no account lockout, no logging
+            # OWASP 2,7,9 FLAW: weak password verification, no account lockout, no logging
             if user.check_password(password):
                 request.session['user'] = user.username
                 return HttpResponse("Logged in!")
@@ -57,21 +61,25 @@ def login_view(request):
     return render(request, "login.html")
 
 
-# FIX: 
+# # OWASP 2021 2, 7, 9 FIX: 
 # def login_view(request):
-#     # OWASP 2021 2: Cryptographic failures 
-#     # OWASP 2021 7: Identification and authentication failures
 #     if request.method == "POST":
 #         username = request.POST.get('username')
 #         password = request.POST.get('password')
+#         ip = request.META.get('REMOTE_ADDR')
 
 #         # FIX: Use Django's secure authentication
 #         user = authenticate(request, username=username, password=password)
 #         if user:
-#             login(request, user)  # Django manages session securely
+#             login(request, user)  # OWASP 7 FIX: Django manages session securely
+#             # OWASP 9 FIX: log successful login
+
+#             logger.info(f"Successful login for user: {username} from IP: {ip}")
 #             return HttpResponse("Logged in!")
-#         # Log failed attempts and enforce lockout
-#         return HttpResponse("Login failed")
+#         else:
+#             # OWASP 9 FIX: log failed login attempt
+#             logger.warning(f"Failed login attempt for user: {username} from IP: {ip}")
+#             return HttpResponse("Login failed")
 
 #     return render(request, "login.html")
 
@@ -86,7 +94,8 @@ def register(request):
 
         user = User(username=username)
 
-        # FLAW: weak hashing
+        # OWASP 2 FLAW: Weak hashing (no proper password handling)
+        # OWASP 7 FLAW: No password policy enforcement
         user.set_password(password)
 
         user.save()
@@ -129,10 +138,10 @@ def download_users(request):
 
 # FIX:
 # def download_users(request):
-#     # OWASP 2021 2: Cryptographic failures
-#     # FIX: restrict access to admins only
+#     # OWASP 2 FIX: restrict access to admins only
 #     if not request.user.is_authenticated or not request.user.is_staff:
 #         return HttpResponse("Unauthorized", status=403)
+#         logger.warning(f"Unauthorized access attempt to admin page by IP: {request.META.get('REMOTE_ADDR')}")
 
 #     users = User.objects.all()
 #     data = ""
@@ -149,7 +158,7 @@ def download_users(request):
 def get_user(request):
     user_id = request.GET.get('id')
 
-    # # FLAW: user input inserted directly into query
+    # OWASP 3 FLAW: user input inserted directly into query
     query = f"SELECT * FROM polls_user WHERE id = '{user_id}'"
 
     with connection.cursor() as cursor:
@@ -161,13 +170,16 @@ def get_user(request):
     data = "<br>".join([str(row) for row in result])
     return HttpResponse(data)
 
-    # FIX: parameterized query prevents SQL injection
-    # query = "SELECT * FROM polls_user WHERE id = %s"
-    # with connection.cursor() as cursor:
-    #     cursor.execute(query, [user_id])
-    #     result = cursor.fetchall()
-    #     if not result:
-    #         return HttpResponse("No results found")
+# #OWASP 2021 3: SQL injection 
+# def get_user(request):
+#     user_id = request.GET.get('id')
+# # OWASP 3 FIX: parameterized query prevents SQL injection
+#     query = "SELECT * FROM polls_user WHERE id = %s"
+#     with connection.cursor() as cursor:
+#         cursor.execute(query, [user_id])
+#         result = cursor.fetchall()
+#         if not result:
+#             return HttpResponse("No results found")
     
-    # data = "<br>".join([str(row) for row in result])
-    # return HttpResponse(data)
+#     data = "<br>".join([str(row) for row in result])
+#     return HttpResponse(data)
