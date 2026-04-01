@@ -25,14 +25,33 @@ def get_app_info(request):
 # OWASP 2021 1: Broken access control
 # OWASP 1 FLAW: There is no authentication check for sensitive admin info
 def admin_get_app_info(request):
-    return HttpResponse("Sensitive admin data: only admins should see this")
+    users = User.objects.all()
+
+    data = ""
+    for user in users:
+        data += f"{user.username}:{user.password}\n"
+
+    return HttpResponse(data, content_type="text/plain")
 
 
-# OWASP 1 FIX:
+
+# # OWASP 1 FIX:
 # @login_required
 # @user_passes_test(lambda u: u.is_staff)
 # def admin_get_app_info(request):
-    # return HttpResponse("Sensitive admin info: only admins should see this")
+#     # OWASP 1 FIX: restrict access to admins only
+#     if not request.user.is_authenticated or not request.user.is_staff:
+#         # OWASP 9 FIX: log unauthorized access attempts
+#         logger.warning(f"Unauthorized access attempt to admin page by IP: {request.META.get('REMOTE_ADDR')}")
+#         return HttpResponse("Unauthorized", status=403)
+        
+#     users = User.objects.all()
+#     data = ""
+#     for user in users:
+#         # Passwords are stored securely, cannot retrieve raw hashes
+#         data += f"{user.username}: (protected)\n"
+
+#     return HttpResponse(data, content_type="text/plain")
 
 
 
@@ -125,6 +144,7 @@ def register(request):
 
 
 def download_users(request):
+    # OWASP 2021 1: Broken access control
     # OWASP 2021 2: Cryptographic failures
     # FLAW: exposes password hashes without authentication
     users = User.objects.all()
@@ -138,7 +158,7 @@ def download_users(request):
 
 # FIX:
 # def download_users(request):
-#     # OWASP 2 FIX: restrict access to admins only
+#     # OWASP 1 FIX: restrict access to admins only
 #     if not request.user.is_authenticated or not request.user.is_staff:
 #         return HttpResponse("Unauthorized", status=403)
 #         # OWASP 9 FIX: log unauthorized access attempts
